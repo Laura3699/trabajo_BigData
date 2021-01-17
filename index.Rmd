@@ -1,0 +1,547 @@
+---
+title: "La Desigualdad"
+subtitle: "Laura Borrás Pariente (laubopa@alumni.uv.es)" #- pongo tú nombre ahí para q aparezca más grande q el de la UV
+author: "Universitat de València"
+date: "Enero de 2021 (actualizado el `17/01/21`)"
+output:
+  html_document:
+    #css: "./assets/my_css_file.css"
+    theme: spacelab
+    highlight: textmate 
+    toc: true
+    toc_depth: 3 
+    toc_float: 
+      collapsed: true
+      smooth_scroll: true
+    self_contained: true
+    number_sections: false
+    df_print: kable
+    code_download: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r packages-setup, include = FALSE}
+library(tidyverse)
+library(klippy)  #- remotes::install_github("rlesur/klippy")
+library(knitr)
+library(readxl)
+library(ggplot2)
+library(ggThemeAssist)
+library(kableExtra)
+library(sf)
+library(ggspatial)
+library(gganimate)
+```
+
+```{r chunk-setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE, 
+                      #results = "hold",
+                      cache = FALSE, cache.path = "/caches/", comment = "#>",
+                      #fig.width = 7, #fig.height= 7,   
+                      #out.width = 7, out.height = 7,
+                      collapse = TRUE,  fig.show = "hold",
+                      fig.asp = 7/9, out.width = "60%", fig.align = "center")
+knitr::opts_chunk$set(dev = "png", dev.args = list(type = "cairo-png"))
+```
+
+```{r options-setup, include = FALSE}
+options(scipen = 999) #- para quitar la notación científica
+options("yaml.eval.expr" = TRUE) 
+```
+
+
+```{r klippy, echo = FALSE}
+klippy::klippy(position = c("top", "right")) #- remotes::install_github("rlesur/klippy")
+```
+
+```{css, echo=FALSE}
+body {
+  background-image: url("./imagenes/blue_wallpaper.jpg")
+  background-repeat: repeat;
+  background-size: 100%;
+}
+
+div {
+  background-color: rgba(241, 231, 254, 1) /* 55% opaque white */;
+  padding: 0.10em;
+}
+```
+
+
+<div style="text-align: justify"><div/>
+
+<hr class="linea-black">
+
+Trabajo elaborado para la asignatura "Programación y manejo de datos en la era del Big Data" de la Universitat de València durante el curso 2020-2021. El repo del trabajo está [aquí](https://github.com/Laura3699/trabajo_BigData){target="_blank"}. La página web de la asignatura y los trabajos de mis compañeros pueden verse [aquí](https://perezp44.github.io/intro-ds-20-21-web/07-trabajos.html){target="_blank"}.
+
+
+<hr class="linea-red">
+
+# *1. Introducción*
+
+<br>
+ <font size="3">En este trabajo, voy a tratar un tema que me parece muy importante. La desigualdad no solo trata de riqueza, patrimonio neto o de los ingresos. También abarca la facilidad que tienen las personas para acceder a los servicios de salud, la educación de calidad o los servicios públicos.
+
+A través de este trabajo quiero analizar la desigualdad que existe en la actualidad a través de una serie de gráficos y datos.</font>
+
+<br>
+
+## *1.2 Desigualdad*
+
+<br>
+
+ <font size="3">La **desigualdad** se puede definir como el trato desigual o diferente que indica diferencia o discriminación de un individuo hacia otro debido a su posición social, económica, religiosa, sexo, raza, color de piel, personalidad, cultura, entre otros. Por tanto, hay también diferentes tipos de desigualdad, pero voy a centrarme sobre todo en la desigualdad económica y de género.
+
+**La desigualdad económica** es la diferencia que existe en la distribución de bienes, ingresos y rentas en el seno de un grupo, una sociedad, un país o entre países.
+
+El aumento de la desigualdad ha supuesto que el 1% de las personas con mayores ingresos en el mundo reciba una proporción dos veces más elevada del crecimiento que el 50% de menores ingresos desde 1980.</font>
+
+
+```{r eval=TRUE, echo=TRUE}
+
+knitr::include_graphics(here::here("imagenes", "desigualdad.jpg"))
+
+```
+
+
+<br>
+
+# *2. Datos*
+<br>
+ <font size="3">Para poder hacer el siguiente trabajo he necesitado primero obtener una serie de datos. Los datos que he utilizado proceden del INE, a continuación, he descargado cuatro archivos en formato xls que corresponden a la tasa de pobreza, la renta por hogar, la renta por hogar según sexo y edad, y por último el coeficiente de Gini. Todos estos datos están relacionados con la desigualdad.</font>
+
+<br>
+
+```{r, eval = TRUE}
+#DATOS TASA DE RIESGO DE POBREZA
+
+#url <- "https://www.ine.es/jaxiT3/Datos.htm?t=9963#!tabs-tabla"
+#archivo_de_destino <- here::here("Datos", "riesgo_pobreza.xls")
+#download.file(url, archivo_de_destino)
+
+#Descargaría así los datos desde el INE pero en mi caso no me funcionaba entonces he optado por descargarme las tablas y introducirlas directamente en la carpeta datos.
+
+#Utilizamos el paquete readxl para importar datos de excel, usamos los argumentos sheet para el número de pestaña y range para seleccionar el rango de celdas que queremos importar
+
+df_pobreza <- read_excel ("./datos/tasa_de_riesgo_de_pobreza.xls", sheet=1, range ="A8:M28")
+
+df_renta_por_hogar <- read_excel ("./datos/Renta_por_hogar.xls", sheet=1, range = "A8:M28") 
+
+df_renta_por_persona_y_sexo <- read_excel ("./datos/renta_por_persona_y_sexo.xls", sheet = 1, range = "A8:M12") 
+
+# Cojo hasta el M12 en vez de coger hasta el M11 porque de la otra forma no aparecen los datos  de mujeres, más tarde arreglaré el df.
+
+df_coeficiente_de_gini <- read_excel("./datos/coeficiente_de_gini.xls", sheet = 1, range = "A7:M9") 
+
+```
+## *2.1. Procesando los datos*
+
+<br>
+ <font size="3">En este apartado explicaré como he procesado los distintos datos para poder hacer los gráficos. En todos los casos ha sido necesario modificar los df's originales para poderlos adaptar a cada gráfico, tabla o mapa. A partir de cada código explico de manera más especifica que he hecho en cada caso.</font>
+
+```{r, eval = TRUE}
+
+#DF POBREZA
+
+names(df_pobreza) = c("C.autonomas", "2019", "2018", "2017", "2016", "2015", "2014", "2013", "2012", "2011", "2010", "2009", "2008")  # Cambio el nombre de las columnas para que la primera  columna se llame C. autonomas
+
+df_pobreza1 <- df_pobreza %>% pivot_longer(cols=2:13 , names_to= "Años", values_to = "Tasa") 
+# Pasamos del formato wide al formato long
+
+df_pobreza2 <- df_pobreza1 %>% filter(C.autonomas == "Total Nacional") %>% select(Años, Tasa) 
+# Filtramos primero para los datos del total nacional y después seleccionamos solo las columnas Años y Tasa, ya tenemos el df para poder hacer el primer gráfico
+
+df_pobreza3 <- df_pobreza1 %>% filter(C.autonomas != "Total Nacional", Años=="2019") %>% slice_max(n=19, Tasa) 
+# Filtramos primero para obtener solo los datos de las diferentes comunidades autónomas, eliminando el total nacional y filtramos solo los datos del año 2019, además ordenamos con slice_max las comunidades de mayor a menor.
+
+
+#Preparo el df para el mapa que muestra las tasas por C.Autónomas
+
+CCAA <- rio::import("https://github.com/perezp44/LAU2boundaries4spain/blob/master/data/CCAA.rda?raw=true") #Cargamos el conjunto de datos de las CCAA para obtener las geometrias.
+
+#Después quería hacer un df juntando el de CCAA y el df_pobreza2 pero tuve un problema al juntarlos porque en el df CCAA esta Ceuta y Melilla juntos y en los datos que yo tenia Ceuta y Melilla estaban por separado. Entonces tuve que crear una nueva variable que recogiera los dos datos.
+
+df_pobreza3$Tasa[1] #Almacenamos la tasa de Ceuta
+
+df_pobreza3$Tasa[2] #Almacenamos la tasa de Melilla
+
+df_wide <- df_pobreza3 %>% pivot_wider(names_from= C.autonomas, values_from = Tasa) # Pasamos  el df de long a wider para tener las C.autónomas en columnas y así poder añadir la nueva variable.
+
+names(df_wide) = c("Años", "Ceuta", "Melilla", "Extremadura", "Andalucía", "Canarias", "Región de Murcia", "Castilla-La Mancha", "Comunidad Valenciana", "Principado de Asturias", "Galicia", "Aragón", "Cantabria", "Comunidad de Madrid", "Cataluña", "Castilla y León", "La Rioja", "Illes Balears", "País Vasco", "Comunidad Foral de Navarra") #Cambio los nombres de las variables para que sea más fácil hacer modificaciones.
+
+df_wide1 <- df_wide %>% mutate( "Ciudades Autónomas de Ceuta y Melilla"= (Ceuta + Melilla)/2) #Con mutate() cremaos la nueva variable que recoge los datos de Ceuta y Melilla juntos y hacemos la media de los dos para obtener la tasa de pobreza.
+
+df_pobreza4 <- df_wide1 %>% pivot_longer(cols = 2:21, names_to= "C.autonomas", values_to= "Tasa") %>% filter(C.autonomas != "Ceuta") %>% filter(C.autonomas!="Melilla") %>% slice_max(n=18, Tasa) #Ahora usamos filter para eliminar Ceuta y Melilla ya que ahora las tenemos de forma conjunta, y volvemos a ordenar los datos con slice.
+
+dfCCAApobreza <- full_join(df_pobreza4, CCAA, by= c("C.autonomas" = "NombreCCAA")) #Hacemos un full_join para unir ambos df's.
+
+
+#DF RENTA POR HOGAR
+
+
+#Modificamos el df que representa la renta por hogar
+
+names(df_renta_por_hogar) = c("C.autonomas", "2019", "2018", "2017", "2016", "2015", "2014", "2013", "2012", "2011", "2010", "2009", "2008") #Cambio el nombre de la columna 1 
+
+df_long <- df_renta_por_hogar %>%pivot_longer(cols = 2:13, names_to= "Años", values_to = "Renta neta media por hogar") # Pasamos de formato wide a long.
+
+df_renta_por_hogar1 <- df_long %>% filter( C.autonomas == "Total Nacional") %>% select(Años,`Renta neta media por hogar`) # Filtramos para obtener el Total Nacional y seleccionamos Años y Renta neta media por hogar
+
+
+df_renta_por_hogar2 <- df_long %>% filter(C.autonomas != "Total Nacional", Años=="2019") %>% slice_max(n=19, `Renta neta media por hogar`) #A partir de este df hare un mapa de España que represente la renta por hogar de las distintas comunidades autónomas, en este df tenemos el mismo problema que con el anterior de la tasa de pobreza y tendremos que crear una nueva variable que represente ceuta y melilla de forma conjunta.
+
+
+#Almacenamos los datos de las dos variables
+
+
+df_renta_por_hogar2$`Renta neta media por hogar`[7] #Almacenamos la renta por hogar de Ceuta
+
+df_renta_por_hogar2$`Renta neta media por hogar`[1] #Almacenamos la renta por hogar de Melilla
+
+df_wide2 <- df_renta_por_hogar2 %>% pivot_wider(names_from= C.autonomas, values_from = `Renta neta media por hogar`) #Pasamos de long a wide
+
+names(df_wide2) = c("Años","Melilla", "País Vasco", "Comunidad de Madrid", "Comunidad Foral de Navarra", "Cataluña", "Illes Balears", "Ceuta", "La Rioja", "Aragón", "Cantabria", "Principado de Asturias", "Castilla y León", "Galicia", "Comunidad Valenciana", "Castilla-La Mancha", "Canarias", "Región de Murcia", "Andalucía", "Extremadura") # Cambiamos los nombres de las variables para poder hacer mejor las transformaciones.
+
+df_wide3 <- df_wide2 %>% mutate( "Ciudades Autónomas de Ceuta y Melilla"= (Ceuta + Melilla)/2) # Con mutate() cremaos la nueva variable que recoge los datos de Ceuta y Melilla juntos y hacemos la media de los dos para obtener la renta por hogar.
+
+df_renta_por_hogar3 <- df_wide3 %>% pivot_longer(cols = 2:21, names_to= "C.autonomas", values_to= "Renta neta media por hogar") %>% filter(C.autonomas != "Ceuta") %>% filter(C.autonomas!="Melilla") %>% slice_max(n=18, `Renta neta media por hogar`) # Ahora usamos filter para eliminar Ceuta y Melilla ya que ahora las tenemos de forma conjunta, y volvemos a ordenar los datos con slice.
+
+dfCCAArenta <- full_join(df_renta_por_hogar3, CCAA, by= c("C.autonomas" = "NombreCCAA")) # Hacemos un full_join para unir ambos df's.
+
+
+#DF RENTA MEDIA POR PERSONA Y SEXO
+
+#Modificamos el df que representa la renta neta media por persona y sexo.
+
+names(df_renta_por_persona_y_sexo) = c("Genero", "2019", "2018", "2017", "2016", "2015", "2014", "2013", "2012", "2011", "2010", "2009", "2008") #Renombramos las variables
+
+df_renta_por_persona_y_sexo1 <- df_renta_por_persona_y_sexo %>% filter(Genero != "Ambos sexos") # Eliminamos ambos sexos
+
+df_renta_por_persona_y_sexo2 <- df_renta_por_persona_y_sexo1 %>% pivot_longer(cols = 2:13, names_to= "Años", values_to = "Renta neta media por persona") # Pasamos de formato wide a long.
+
+# DF COEFICIENTE DE GINI
+
+#Modificamos el df que representa el coeficiente de gini
+
+names(df_coeficiente_de_gini) = c("Tipo", "2019", "2018", "2017", "2016", "2015", "2014", "2013", "2012", "2011", "2010", "2009", "2008") # Renombramos las variables.
+
+df_coeficiente_de_gini1 <- df_coeficiente_de_gini %>% pivot_longer(cols = 2:13, names_to= "Años", values_to= "Coeficientes de Gini") # Pasamos de formato wide a long.
+
+
+#Limpieza de df's utilizados, voy a dejar solo los que he utilizado para hacer gráficos, mapas o tablas.
+
+objetos_no_borrar <-c("df_pobreza", "df_pobreza2", "df_pobreza4", "dfCCAApobreza", "df_renta_por_hogar", "df_renta_por_hogar1", "df_renta_por_hogar2", "df_renta_por_hogar3","dfCCAArenta", "df_renta_por_persona_y_sexo2", "df_coeficiente_de_gini1")
+rm(list = ls()[!ls() %in% objetos_no_borrar])
+
+
+
+
+
+
+
+
+
+```
+
+# *3. Población en riesgo de pobreza*
+
+<br>
+
+ <font size="3">En primer lugar, consideramos que están en riesgo de pobreza aquellas personas que viven en hogares cuya renta es inferior al 60% de la mediana de la renta de su país o territorio, cuyos ingresos están por debajo del "Umbral de pobreza". Además, hay que tener en cuenta que no mide pobreza absoluta, sino cuantas personas tienen ingresos bajos en relación al conjunto de la población.
+
+El umbral de pobreza es un indicador del nivel de vida medio de la población. Cuanto mayor sea el umbral de pobreza, mayor es en principio el nivel de vida de una sociedad. Por tanto, un incremento del umbral de pobreza, con un mantenimiento del riesgo de pobreza indica que el nivel de ingresos de la población general mejora y lo contrario ocurre si el umbral de pobreza disminuye.</font>
+
+<br>
+
+## *3.1 Gráfico 1: Tasa de pobreza en España *{.tabset}
+
+<br>
+
+```{r, echo = FALSE, eval= TRUE}
+
+
+ a <- ggplot(df_pobreza2, aes(Años, Tasa, group = 1)) + geom_point() + geom_line()  # Me salia un error (Each group consists of only one observation. Do you need to adjust the group aesthetic?) y no conseguía mostrar los datos con el geom_line(), he buscado una solución en internet y lo que me ha funcionado ha sido añadir group=1.
+
+a + theme(plot.subtitle = element_text(size = 10, 
+    face = "italic", colour = "gray26", hjust = 0.5), 
+    plot.caption = element_text(face = "bold.italic", 
+        colour = "gray24"), axis.ticks = element_line(size = 0.6), 
+    axis.text = element_text(size = 12, colour = "gray5"), 
+    plot.title = element_text(family = "serif", 
+        size = 15, face = "bold.italic", 
+        hjust = 0.5, vjust = 1.5), panel.background = element_rect(fill = "gray94", 
+        size = 0.9), plot.background = element_rect(fill = "lightcyan2", 
+        colour = "gray7", size = 0.7, linetype = "dashed")) +labs(title = "TASA DE POBREZA", subtitle = "(Desde 2008 a 2019 en España)", 
+    caption = "Datos provinientes del INE")
+
+
+```
+ 
+<br>
+
+ <font size="3">En el siguiente gráfico podemos ver representada la tasa de pobreza de España desde 2008 a 2019. En 2019 presentó un porcentaje de 20,7% de la población en riesgo de pobreza, como podemos ver ha disminuido respecto al año anterior en 0,8 puntos, en 2018 la tasa era de 21,5%. 
+
+En 2008 aumenta la tasa en riesgo de pobreza a causa de la crisis económica y sigue aumentando hasta 2016. También podemos ver que a pesar de que en algunos años como en 2013 donde la tasa es menor respecto al 2012, presenta una  tendencia alcista de 2008 a 2016. A partir de 2016 la situación mejora y continua disminuyendo hasta 2019.
+
+En cuanto a la situación actual, la organización Oxfam ha alertado de que el impacto socioeconómico de la pandemia podría aumentar en más de 1,1 millones las personas en situación de pobreza en España, hasta alcanzar los 10,9 millones, el 23,07% de la población.</font>
+<br>
+
+
+### 3.2 Gráfico 2: Tasa de pobreza por CCAA {.tabset}
+
+```{r, echo = FALSE, eval= TRUE}
+
+
+CCAA_points <- cbind(dfCCAApobreza, st_coordinates(st_centroid(dfCCAApobreza$geometry)))
+
+p<- ggplot(data = dfCCAApobreza, aes(geometry =geometry)) +geom_sf(aes(fill = Tasa)) + scale_fill_viridis_c(option = "plasma", trans= "sqrt") + 
+  labs(title = "Gráfico 2: Tasa de Pobreza por Comunidades Autonomas") + annotation_scale() + 
+  annotation_north_arrow(location='tr') #Creamos el mapa, añade una flecha que indica el norte y una escala.
+
+p + geom_text(data = CCAA_points, aes(x = X, y = Y, label= C.autonomas), color = "gray0", fontface = "bold", check_overlap = FALSE, size = 1.7) #Lo puse a ese tamaño de letra porque si pongo 1.8 o mas cantabria y la comunidad valenciana desaparecen al solaparse con otros nombres
+
+
+
+```
+
+ <font size="3">En este gráfico he querido mostrar la tasa de pobreza por Comunidades autónomas. Además en la siguiente pestaña he añadido una tabla para poder observar los datos de cada Comunidad autónoma de forma más sencilla.
+
+En primer lugar, nos encontramos con que las Comunidades autónomas que presentan una mayor Tasa de pobreza són: las Ciudades Autónomas de Ceuta y Melilla, Extremadura, Andalucía y Canarias.
+
+En segundo lugar, podemos observar que las Comunidades Autónomas con menor tasa son: Comunidad Foral de Navarra, País Vasco y Illes Balears.</font>
+
+
+### 3.3 Tabla datos: Tasa de pobreza por CCAA {.tabset}
+
+
+```{r, echo= FALSE, eval= TRUE}
+
+knitr::kable(df_pobreza4, format = "html") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), fixed_thead = list(enabled = T, background = "lightsalmon"))
+
+
+```
+
+<br>
+
+
+# *4. Renta anual neta media por hogar*
+
+<br>
+ <font size="3">**La renta anual neta media del hogar** son los ingresos netos percibidos durante el año anterior al de la entrevista por los miembros del hogar, que son los que proporcionan la información para la elaboración de la encuesta. 
+
+Estos ingresos se componen de: los ingresos del trabajo por cuenta ajena, beneficios/pérdidas del trabajo por cuenta propia, prestaciones sociales, rentas procedentes de esquemas privados de pensiones no relacionados con el trabajo, rentas del capital y de la propiedad, transferencias entre hogares, ingresos percibidos por menores y el resultado de la declaración por el IRPF y por el Impuesto sobre el Patrimonio. No se incluyen las componentes no monetarias, salvo el coche de empresa.</font>
+
+<br>
+
+## *4.1 Gráfico 3: Renta neta media por hogar en España* {.tabset}
+
+<br>
+
+```{r, echo= FALSE, eval= TRUE}
+
+b <- ggplot(df_renta_por_hogar1, aes(Años, `Renta neta media por hogar` )) + geom_col(fill= "mediumpurple2") 
+
+b + theme(plot.subtitle = element_text(size = 11, 
+    colour = "gray15", hjust = 0.5), plot.caption = element_text(size = 10, 
+    face = "bold.italic", colour = "gray24"), 
+    panel.grid.major = element_line(size = 0.7), 
+    panel.grid.minor = element_line(size = 0.7), 
+    axis.title = element_text(size = 12, 
+        face = "bold", vjust = 1.75), axis.text = element_text(size = 13, 
+        colour = "gray11"), plot.title = element_text(family = "serif", 
+        size = 15, face = "bold.italic", 
+        hjust = 0.5, vjust = 1.75), panel.background = element_rect(fill = "gray93", 
+        size = 1.3), plot.background = element_rect(fill = "lavender", 
+        colour = "gray7", linetype = "dashed")) +labs(title = "RENTA NETA MEDIA POR HOGAR", 
+    x = "AÑOS", y = "RENTA NETA MEDIA POR HOGAR", 
+    subtitle = "(Desde 2008 a 2019 en España)", 
+    caption = "Datos proveniente del INE")
+
+
+
+```
+
+<br>
+
+ <font size="3">El siguiente gráfico representa la renta media por hogar desde 2008 a 2019. En 2008 la renta anual neta media por hogar era de 28.787 euros. A partir de 2009 empieza a disminuir de 30.045 a 29.634 en 2010. 
+
+Podemos observar como de 2010 a 2015 la tendencia que sigue la renta anual neta media por hogar es a la baja hasta que en 2016 aumenta hasta 2019. </font>
+
+<br>
+
+### 4.1.1 Gráfico 4: Renta neta media por hogar CCAA {.tabset}
+ 
+```{r, out.width="80%", echo = FALSE, eval = TRUE}
+
+CCAA_points1 <- cbind(dfCCAArenta, st_coordinates(st_centroid(dfCCAArenta$geometry)))
+
+p<- ggplot(data = dfCCAArenta, aes(geometry =geometry)) +geom_sf(aes(fill = `Renta neta media por hogar` )) + scale_fill_viridis_c(option = "plasma", trans= "sqrt") + 
+  labs(title = "Gráfico 4: Renta neta media por hogar por Comunidades Autonomas") + annotation_scale() + 
+  annotation_north_arrow(location='tr') #Creamos el mapa, añade una flecha que indica el norte y una escala.
+p + geom_text(data = CCAA_points, aes(x = X, y = Y, label= C.autonomas), color = "gray0", fontface = "bold", check_overlap = FALSE, size = 1.7) #Lo puse a ese tamaño de letra porque si pongo 1.8 o mas cantabria y la comunidad valenciana desaparecen al solaparse con otros nombres
+
+```
+
+<br>
+ <font size="3">El gráfico representa la Renta neta media anual por hogar por Comunidades Autónomas. Podemos observar que las comunidades con mayor renta neta media anual són: País Vasco, Comunidad de Madrid y Comunidad de Foral de Navarra. En cambio, encontramos entre las comunidades que presentan menor renta neta media anual a Extremadura, Andalucía y Región de Murcía.</font>
+
+### 4.1.2 Tabla datos: Renta neta media por hogar CCAA {.tabset}
+
+
+```{r, echo = FALSE, eval= TRUE}
+knitr::kable(df_renta_por_hogar3, format = "html") %>% 
+  kableExtra::kable_styling(bootstrap_options = c("striped", "hover"), fixed_thead = list(enabled = T, background = "lightpink"))
+
+
+```
+
+<br>
+
+## *4.2 Renta neta media por persona y sexo*
+
+<br>
+
+
+<font size="3"> A continuación, vamos a observar un gráfico que representa la renta neta media por persona según el género. La diferencia de unos datos a otros se puede explicar a causa de la brecha salarial de género en España. La diferencia del salario anual entre un hombre y una mujer es de 4.915 euros, según datos que ofrecen los Técnicos del Ministerio de Hacienda.
+
+Las principales causas de la brecha salarial són: discriminación en el lugar de trabajo, dificultad de conciliar la vida laboral y familiar, diferentes salarios por sectores y escasez de liderazgo de mujeres en puestos de alto nivel.</font>
+
+<br>
+
+## *4.2.1 Gráfico 5: Renta media por persona por género*
+
+<br>
+```{r, echo= FALSE, eval= TRUE}
+df_renta_por_persona_y_sexo3 <- df_renta_por_persona_y_sexo2 %>% mutate(Año = as.numeric(as.character(Años))) %>% select("Genero", "Renta neta media por persona", "Año")
+
+c <- ggplot(df_renta_por_persona_y_sexo3, aes(Año, `Renta neta media por persona`, color = Genero, group= Genero)) + geom_line() + geom_point() #+ transition_reveal(Año), iba a hacer un gráfico animado, funciona no hay ningun error cuando lo cargo en r, pero cuando le doy a knit no carga, puede tirarse horas.
+
+  #En este grafico he vuelto a tener el error ( Each group consists of only one observation. Do you need to adjust the group aesthetic?) lo he arreglado utilizando group y asociandolo a la variable Genero. Añadir una doble pestaña para poner una tabla con los datos para asi poder ver los diferentes dato segun el genero.
+ c + theme(plot.subtitle = element_text(size = 11, 
+    colour = "gray22", hjust = 0.5), plot.caption = element_text(size = 10, 
+    colour = "gray22"), panel.grid.major = element_line(size = 0.7), 
+    panel.grid.minor = element_line(size = 0.7), 
+    axis.title = element_text(size = 12, 
+        face = "bold", vjust = 1.75), axis.text = element_text(size = 11, 
+        colour = "gray4"), plot.title = element_text(family = "serif", 
+        size = 16, face = "bold.italic", 
+        hjust = 0.5, vjust = 1.75), panel.background = element_rect(fill = "gray95", 
+        size = 0.6), plot.background = element_rect(fill = "rosybrown3", 
+        colour = "gray0", linetype = "dashed")) +labs(title = "RENTA MEDIA POR PERSONA", 
+    x = "AÑOS", y = "RENTA MEDIA POR PERSONA", 
+    subtitle = "(Desde 2008 a 2019 en España)", 
+    caption = "Datos provenientes del INE")
+
+```
+
+<br>
+ <font size="3">En este gráfico he querido mostrar la renta neta anual media por sexo distinguiendo entre Hombres y Mujeres para poder ver mejor las diferencias. Además, en el gráfico se muestra el total que está calculado como la media de los resultados de Hombres y Mujeres.
+
+En el gráfico podemos ver a simple vista como los hombres representados por la línea roja presenta una renta mayor que las mujeres, representadas con una linea verde, que presentan una renta menor. Esta diferencia entre rentas se mantiene desde 2008 a 2019 aunque podemos ver que en algunos periodos esta diferencia disminuye y en cambio en otros se hace mayor.
+
+El año donde esta diferencia es menor es en 2013 donde los Hombres tienen una renta media anual de 10.576 y las Mujeres de 10.488. Y el año donde esta diferencia es mayor es en 2009 con una renta de 11.561 en el caso de los hombres y de 11.080 en el caso de las mujeres. </font>
+
+<br>
+
+# *5. Coeficiente de Gini*
+<br>
+
+
+ <font size="3">El indice de Gini se utiliza para analizar el grado de inequidad en la distribución respecto a los ingresos. Este indicador toma valores entre cero y uno (o entre 0 y 100 si esta en porcentaje). Si el indicador toma el 0 representaría la perfecta igualdad, todas las personas tienen los mismos ingresos, en cambio si el indicador toma el valor de 1 significaría que todo el ingreso nacional estaría en manos de una única persona, perfecta desigualdad.</font>
+
+Se calcula con la siguiente fórmula:
+$$ 1- \sum_{k=1}^n (X_k + X_{k-1})(Y_k- Y_{k-1}) $$
+<br>
+
+## *5.1 Gráfico 6: Coeficiente de Gini con alquiler imputado*
+
+```{r,echo = FALSE, eval = FALSE}
+showCols <- function(cl=colors(), bg = "grey",
+                     cex = 0.75, rot = 30) {
+    m <- ceiling(sqrt(n <-length(cl)))
+    length(cl) <- m*m; cm <- matrix(cl, m)
+    require("grid")
+    grid.newpage(); vp <- viewport(w = .92, h = .92)
+    grid.rect(gp=gpar(fill=bg))
+    grid.text(cm, x = col(cm)/m, y = rev(row(cm))/m, rot = rot,
+              vp=vp, gp=gpar(cex = cex, col = cm))
+  }
+showCols(cl= colors(), bg="gray33", rot=30, cex=0.75) #He utilizado este codigo para ver los diferentes codigos de los colores
+
+```
+<br>
+
+```{r, echo= FALSE, eval= TRUE}
+
+
+d <- ggplot(df_coeficiente_de_gini1, aes(Años, `Coeficientes de Gini`, fill= Tipo)) + geom_bar(stat="identity", position = "dodge") +  scale_fill_manual(values=c("skyblue1", "lightpink1"))
+
+d + theme(plot.caption = element_text(size = 10, 
+    face = "bold.italic", colour = "gray24"), 
+    panel.grid.major = element_line(size = 0.7), 
+    panel.grid.minor = element_line(size = 0.7), 
+    axis.title = element_text(size = 11, 
+        face = "bold", vjust = 1.75), axis.text = element_text(size = 10, 
+        colour = "gray16"), plot.title = element_text(family = "serif", 
+        size = 15, face = "bold.italic", 
+        hjust = 0.5, vjust = 1.5), panel.background = element_rect(fill = "gray94"), 
+    plot.background = element_rect(fill = "aliceblue", 
+        colour = "black", linetype = "dashed")) +labs(title = "COEFICIENTES DE GINI", x = "AÑOS", 
+    y = "COEFICIENTES DE GINI", caption = "Datos provenientes del INE")
+
+
+```
+ <br>
+ 
+ <font size="3">En el gráfico podemos observar cómo en general aumenta de 2008 a 2014 lo que supondría un aumento de la desigualdad, pero a partir de 2015 va disminuyendo hasta 2019 que alcanza un porcentaje de 33. Aunque los datos son menores respecto a años anteriores todavía queda mucho por hacer ya que a día de hoy no hemos recuperado los datos de 2008.</font>
+
+<br>
+
+# *6. Conclusión*
+<br>
+<font size="3">En este trabajo he analizado distintas variables para poder observar la situación de españa respecto a la desigualdad. La desigualdad sigue siendo un problema, centrandonos en la tasa de pobreza todavía no hemos recuperado los niveles que teníamos en 2008. Además como ya he mencionado la situación actual de la pandemia va a contribuir a empeorar los niveles de desigualdad incrementando la pobreza ya que són muchas las personas que se han quedado sin empleo y han visto disminuidos sus ingresos.
+
+Por otra parte, la renta neta anual por hogar según los datos es mayor que en 2008 pero todavía queda disminuir los efectos de la brecha salarial sobre la diferencia de ingresos entre hombres y mujeres. Algunas de las medidas que pueden contribuir a disminuirlas són: el impulso de políticas públicas que se centren en el acceso a la educación y capacitación profesional, incorporación de estímulos derivados de medidas la adopción de sellos de calidad y de igualdad de género empresarial o medidas de apoyo a la conciliación para proteger la maternidad, entre otras.
+
+Por último, el coeficiente de Gini aunque es menor que en años anteriores tampoco hemos alacanzado los datos de 2008. Hacen faltan políticas que ayuden a disminuir la desigualdad existente. Políticas que ayudan a disminuirla són: acceso universal a educación de calidad, tributación progresiva, desarrollo y nutrición en la primera infancia, entre otras.</font>
+<br>
+
+# *7. Trabajos en los que te has basado*
+
+<br>
+ <font size="3">En este trabajo he cogido ideas fundamentalmente de una página llamada *epdata* donde encontré una serie de gráficos basados en la tasa de pobreza, en la renta neta anual media y el coeficiente de Gini. En esta página se puede ver varios ejemplos de gráficos y tomé el ejemplo de los gráficos que podía hacer para mi trabajo.
+ 
+También he buscado información en distintas páginas para obtener más información acerca de la desigualdad y además he buscado tutoriales de r para poder hacer el trabajo. En la bibliografia se puede encontrar las distintas páginas que he utilizado para elaborarlo.</font>
+
+<br>
+
+# *8. Bibliografía*
+
+ <font size="3">Para la realización de este trabajo he utilizado:</font>
+
+- [Datos INE](https://www.ine.es/dyngs/INEbase/es/operacion.htm?c=Estadistica_C&cid=1254736176807&menu=ultiDatos&idp=1254735976608)
+
+- [Información sobre desigualdad](https://es.wikipedia.org/wiki/Desigualdad_social)
+
+- [Gráficos Epdata](https://www.epdata.es/datos/pobreza-encuesta-condiciones-vida-ine-estadisticas-graficos-datos/95/espana/106)
+
+- [Información sobre desigualdad económica](https://eacnur.org/blog/desigualdad-economica-que-es-tc_alt45664n_o_pstn_o_pst/?tc_alt=47342&n_o_pst=n_o_pst&n_okw=_b__c_52693938160&gclid=Cj0KCQiAoab_BRCxARIsANMx4S6dxy3wga990ratOAGkqo7gZ1ga6vAA8JO21qYRh5OgCoF3uBXqkEwaAmotEALw_wcB)
+
+- [Pobreza en la pandemia](https://elpais.com/sociedad/2020-10-14/la-pandemia-agravara-una-pobreza-ya-enquistada-en-espana.html#:~:text=La%20organizaci%C3%B3n%20Oxfam%20Interm%C3%B3n%20ha,%2C07%25%20de%20la%20poblaci%C3%B3n.)
+
+- [Datos INE](https://www.ine.es/ss/Satellite?L=es_ES&c=INESeccion_C&cid=1259925949467&p=1254735110672&pagename=ProductosYServicios%2FPYSLayout&param1=PYSDetalle&param3=1259924822888)
+
+- [Brecha salarial](https://factorialhr.es/blog/brecha-salarial-genero/)
+
+- [Desigualdad datos](https://news.un.org/es/story/2019/07/1459341)
+
+- [Tutorial R personalizar gráficos](https://rpubs.com/Rortizdu/140190)
+
+- [Riesgo de Pobreza](https://datosmacro.expansion.com/demografia/riesgo-pobreza/espana)
+
+- [Personalizar Mapas](https://mappinggis.com/2019/07/creacion-de-mapas-con-r-y-ggplot2/)
+
+
+
